@@ -1,0 +1,544 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<document>
+	<entete>
+		<rubrique>97</rubrique>
+		<meta>
+			<description>Industrialisation du développement de services Web avec Maven</description>
+			<keywords>Maven, Jetty, jaxws, jaxrs, jaxb, tutoriel, soap</keywords>
+		</meta>
+		<titre>
+			<page>Tutoriel sur l'industrialisation du développement de services Web avec Maven</page>
+			<article>Tutoriel sur l'industrialisation du développement de services Web avec Maven</article>
+		</titre>
+		<date>2013-06-02</date>
+		<miseajour/>
+		<extratag/>
+		<google-analytics>UA-38340412-1</google-analytics>
+		<licauteur>Hugo Lassiège</licauteur>
+		<lictype>2</lictype>
+		<licannee>2013</licannee>
+		<serveur>hugo123-http</serveur>
+		<chemin>tutoriels/java/industrialisation-developpement-services-web-avec-maven</chemin>
+		<urlhttp>http://hugo.developpez.com/tutoriels/java/industrialisation-developpement-services-web-avec-maven/</urlhttp>
+		<pdf>
+			<sautDePageAvantSection>0</sautDePageAvantSection>
+			<notesBasPage>PageCourante</notesBasPage>
+		</pdf>
+	</entete>
+	<authorDescriptions>
+		<authorDescription name="hugo123" role="auteur">
+			<fullname>Hugo Lassiège</fullname>
+			<url>http://www.developpez.net/forums/u49260/hugo123/</url>
+			<homepage>
+				<title>http://hugo.developpez.com</title>
+				<url>http://hugo.developpez.com</url>
+			</homepage>
+			<blog>http://hakanai.free.fr</blog>
+		</authorDescription>
+		<authorDescription name="claudeleloup" role="correcteur">
+			<fullname>Claude Leloup</fullname>
+			<url>http://www.developpez.net/forums/u124512/claudeleloup/</url>
+			<homepage>
+				<title>Site personnel</title>
+				<url>http://claudeleloup.developpez.com/</url>
+			</homepage>
+		</authorDescription>
+	</authorDescriptions>
+	<synopsis>
+		<paragraph>Cet article fait partie d'une série autour de l'industrialisation du développement Java avec Maven. Dans cette série, je m'attarderai sur les astuces et bonnes pratiques permettant de gagner du temps et de standardiser vos développements. De plus, tout <link href="https://github.com/hlassiege/maven-ws">le code de l'article</link> ainsi que <link href="https://github.com/hlassiege/art-maven-ws">l'article lui-même</link> sont disponibles sous GitHub pour permettre à chacun de contribuer à tenir ces articles à jour. </paragraph>
+		<paragraph>Pour cet article, je vous propose de faire le point sur les plugins permettant de réaliser des services Web (SOAP ou REST). Ces plugins très pratiques vous permettront&#160;: </paragraph>
+		<liste>
+			<element>de générer vos objets modèles à partir d'une XSD&#160;;</element>
+			<element>de paramétrer cette génération pour que vos objets soient pratiques à utiliser&#160;;</element>
+			<element>de générer un WSDL ou un WADL de vos services&#160;;</element>
+			<element>de distribuer un client de vos services généré à partir de votre WSDL&#160;;</element>
+			<element>de tester vos services déployés sur un serveur Jetty en intégration continue avec SoapUI. </element>
+		</liste>
+		<paragraph>Et voici les plugins qui vont nous intéresser&#160;:</paragraph>
+		<liste>
+			<element><link href="https://java.net/projects/maven-jaxb2-plugin/pages/Home">maven-jaxb2-plugin</link>&#160;; </element>
+			<element><link href="http://cxf.apache.org/docs/maven-java2ws-plugin.html">maven-java2ws-plugin</link>&#160;; </element>
+			<element><link href="http://cxf.apache.org/docs/maven-cxf-codegen-plugin-wsdl-to-java.html">cxf-codegen-plugin </link>&#160;; </element>
+			<element><link href="http://www.soapui.org/Test-Automation/maven-2x.html">maven-soapui-plugin</link>. </element>
+		</liste>
+		<paragraph><lien-forum avecnote="1" id="1321483"/> </paragraph>
+	</synopsis>
+	<summary>
+		<section id="I">
+			<title>Introduction</title>
+			<paragraph>Le SOA est désormais un terme assez vieux, 2000 si j'en crois Wikipédia, autrement dit une autre ère en informatique. Vous êtes donc sans doute bien habitué à manipuler des Services Web pour communiquer entre deux éléments de votre SI, voire des applications en dehors de votre SI. </paragraph>
+			<paragraph>Habitué peut-être, mais l'avez-vous pour autant industrialisé&#160;? </paragraph>
+			<paragraph>De mes différentes expériences, j'ai pu constater très régulièrement&#160;: </paragraph>
+			<liste>
+				<element>des définitions de modèles dupliquées et incorrectes entre plusieurs projets&#160;;</element>
+				<element>des WSDL copiés à la main pour générer les clients, finissant par ne plus être synchrones avec le service ciblé&#160;; </element>
+				<element>des codes d'appel aux services parfois pas généré du tout&#8230;&#160;;</element>
+				<element>des tests d'intégration effectués sur une machine jamais mise à jour&#160;;</element>
+				<element>voire pas de tests d'intégration du tout&#8230;</element>
+			</liste>
+			<paragraph>Ici nous allons tenter de remédier à tous ces points. Nous allons partir d'exemples réalisés à partir de Web Services SOAP et REST. Les deux services seront écrits en code-first, c'est-à-dire que nous partirons du code et non de la définition d'un service (via un WSDL ou un WADL). </paragraph>
+			<paragraph>Quelques définitions&#160;: </paragraph>
+			<liste>
+				<element>SOA&#160;: architecture orientée services - décrit des services qui interopèrent via des protocoles standards, par exemple SOAP, JMS, REST, etc.&#160;;</element>
+				<element>Web Service&#160;: un service permettant de communiquer entre deux applications et exposé sur un protocole HTTP. La définition est relativement large et comprend aussi bien des Web Services SOAP que REST.&#160;;</element>
+				<element>SOAP&#160;: c'est un protocole permettant d'échanger des informations reposant sur un formalisme XML&#160;; </element>
+				<element>REST&#160;: c'est un style d'architecture qui repose uniquement sur le Web et qui définit la manière d'exposer et d'interagir avec des ressources&#160;; </element>
+				<element>WSDL&#160;: la définition d'un service SOAP est formalisée via le format WSDL qui décrit les opérations exposées, les types de données, etc.&#160;;</element>
+				<element>WADL&#160;: ce format permet de décrire des applications REST. À noter qu'il entre en conflit avec WSDL 2.0 et que son support reste relativement limité dans les frameworks. </element>
+			</liste>
+		</section>
+		<section id="II">
+			<title>Le modèle</title>
+			<paragraph>Ici nous allons créer un Jar contenant notre modèle, les classes Java utilisées dans nos services. Ce jar ne devra contenir que notre modèle utilisé et pourra donc être réutilisé dans d'autres applications. Le code de notre exemple se trouve ici&#160;: <link href="https://github.com/hlassiege/maven-ws/tree/master/">https://github.com/hlassiege/maven-ws</link>.</paragraph>
+			<paragraph>Pour notre modèle, nous allons utiliser un formalisme très standard&#160;: une XSD (XML Schema description). Dans cette XSD nous allons décrire deux types complexes&#160;: Account et Profile. Voici le code de notre fichier&#160;: </paragraph>
+			<code langage="xml"><![CDATA[
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xs:schema elementFormDefault="qualified" version="1.0"
+    targetNamespace="http://www.developpez.com/hugo/model" 
+    xmlns:tns="http://www.developpez.com/hugo/model" 
+    xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+    <xs:element name="profile" type="tns:Profile"/>
+    <xs:element name="account" type="tns:Account"/>
+
+    <xs:complexType name="Account">
+        <xs:sequence>
+            <xs:element name="id" type="xs:string"/>
+            <xs:element minOccurs="1" name="login" type="xs:string"/>
+            <xs:element minOccurs="1" name="password" type="xs:string"/>
+            <xs:element minOccurs="0" name="creation_date" type="xs:dateTime"/>
+            <xs:element minOccurs="0" name="modification_date" type="xs:dateTime"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Profile">
+        <xs:sequence>
+            <xs:element name="id" type="xs:string"/>
+            <xs:element minOccurs="0" name="account" type="tns:Account"/>
+            <xs:element minOccurs="1" name="first_name" type="xs:string"/>
+            <xs:element minOccurs="1" name="last_name" type="xs:string"/>
+            <xs:element minOccurs="0" name="nickname" type="xs:string"/>
+            <xs:element minOccurs="0" name="birthdate" type="xs:dateTime"/>
+            <xs:element minOccurs="1" name="gender" type="xs:string"/>
+            <xs:element minOccurs="1" name="email" type="xs:string"/>
+            <xs:element minOccurs="0" name="creation_date" type="xs:dateTime"/>
+            <xs:element minOccurs="0" name="modification_date" type="xs:dateTime"/>
+        </xs:sequence>
+    </xs:complexType>
+</xs:schema>]]></code>
+			<paragraph>Si les XSD vous sont familières, celles-ci ne devraient pas vous choquer, elles ne contiennent rien de particulier. Et peut-être connaissez-vous déjà le plugin maven-jaxb2-plugin et vous pensez pouvoir déjà passer au chapitre suivant. Grave erreur, je vous invite à bien lire la suite. </paragraph>
+			<paragraph>Pour ceux qui ne connaissent pas ce plugin, celui-ci permet de générer des objets Java à partir de vos XSD. Voici la configuration la plus simple possible de ce plugin&#160;: </paragraph>
+			<code langage="xml"><![CDATA[
+           <plugin>
+                <groupId>org.jvnet.jaxb2.maven2</groupId>
+                <artifactId>maven-jaxb2-plugin</artifactId>
+                <version>0.8.3</version>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>]]></code>
+			<paragraph>Et voici ce que vous auriez obtenu avec une configuration par défaut&#160;: </paragraph>
+			<code langage="java"><![CDATA[
+@XmlAccessorType(XmlAccessType.FIELD)
+@XmlType(name = "Profile", propOrder = {
+    "id",
+    "account",
+    "firstName",
+    "lastName",
+    "nickname",
+    "birthdate",
+    "gender",
+    "email",
+    "creationDate",
+    "modificationDate"
+})
+public class Profile {
+@XmlElement(required = true)
+    protected String id;
+    protected Account account;
+    @XmlElement(name = "first_name", required = true)
+    protected String firstName;
+    @XmlElement(name = "last_name", required = true)
+    protected String lastName;
+    protected String nickname;
+    @XmlSchemaType(name = "dateTime")
+    protected XMLGregorianCalendar birthdate;
+    @XmlElement(required = true)
+    protected String gender;
+    @XmlElement(required = true)
+    protected String email;
+    @XmlElement(name = "creation_date")
+    @XmlSchemaType(name = "dateTime")
+    protected XMLGregorianCalendar creationDate;
+    @XmlElement(name = "modification_date")
+    @XmlSchemaType(name = "dateTime")
+    protected XMLGregorianCalendar modificationDate;
+...
+    // Getter/setters
+...]]></code>
+			<paragraph>Plusieurs remarques pourraient vous venir à l'esprit&#160;: </paragraph>
+			<liste>
+				<element>mes classes ne sont pas annotées avec XmlRootElement, ce sera donc <link href="http://stackoverflow.com/questions/819720/no-xmlrootelement-generated-by-jaxb">plus pénible d'écrire une sérialisation/désérialisation </link>&#160;;</element>
+				<element>mes classes contiennent des attributs typés avec une classe étrange&#160;: XMLGregorianCalendar&#160;; </element>
+				<element>mes classes n'implémentent pas Serializable&#160;;</element>
+				<element>elles ne définissent pas leur identité (méthodes hashCode et equals)&#160;;</element>
+				<element>si je fais un toString, je vais utiliser l'implémentation par défaut de Object.</element>
+			</liste>
+			<paragraph>Nous allons donc remédier à tout cela. Tout d'abord nous allons rajouter un fichier de bindings au même endroit que notre XSD (dans src/main/ressources)&#160;: </paragraph>
+			<code langage="xml"><![CDATA[
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:jaxb="http://java.sun.com/xml/ns/jaxb"
+    xmlns:xjc="http://java.sun.com/xml/ns/jaxb/xjc"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema" jaxb:version="2.1"
+    jaxb:extensionBindingPrefixes="xjc">
+    <xsd:annotation>
+        <xsd:appinfo>
+            <jaxb:globalBindings optionalProperty="primitive">
+                <xjc:simple />
+                <jaxb:serializable uid="1" />
+                <jaxb:javaType name="java.util.Date" xmlType="xs:dateTime"
+                    parseMethod="com.developpez.hugo.ws.adapters.DateAdapter.unmarshal"
+                    printMethod="com.developpez.hugo.ws.adapters.DateAdapter.marshal" />
+            </jaxb:globalBindings>
+        </xsd:appinfo>
+    </xsd:annotation>
+</xsd:schema>]]></code>
+			<paragraph>Ce fichier permet de définir plusieurs choses&#160;: </paragraph>
+			<liste>
+				<element>tous les types de ma XSD peuvent être considérés comme des XmlRootElement&#160;;</element>
+				<element>les propriétés optionnelles utilisent des types simples&#160;;</element>
+				<element>les types dateTime doivent être traduits en Date&#160;;</element>
+				<element>tous mes objets implémentent Serializable.</element>
+			</liste>
+			<paragraph>C'est déjà bien, mais on va désormais personnaliser la configuration du plugin maven-jaxb2-plugin pour améliorer encore nos objets générés. </paragraph>
+			<section id="II-A">
+				<title>Compatibilité JavaBeans</title>
+				<paragraph>Certaines des bibliothèques que vous pourriez utiliser dans vos projets reposent sur la norme <link href="http://en.wikipedia.org/wiki/JavaBeans">JavaBeans</link> pour effectuer leur travail. Par défaut les objets que nous avons générés ne sont pas compatibles&#160;: </paragraph>
+				<liste>
+					<element>ils ne contiennent pas de setter pour les collections&#160;;</element>
+					<element>les booléens sont lus avec des méthodes is et non set.</element>
+				</liste>
+				<imgtext type="info">Sur le dernier point, la norme accepte en réalité l'utilisation de «&#160;is&#160;» pour les getters de booleans mais tous les frameworks ne le supportent pas. </imgtext>
+				<paragraph>Nous allons utiliser ici deux arguments supplémentaires pour notre plugin Jaxb&#160;: </paragraph>
+				<liste>
+					<element>-enableIntrospection&#160;: permet de générer des getter/setter pour les booléens&#160;;</element>
+					<element>-Xcollection-setter-injector&#160;: pour générer des setter pour les collections.</element>
+				</liste>
+			</section>
+			<section id="II-B">
+				<title>Identité d'un élément</title>
+				<paragraph>Si l'on veut comparer deux instances d'une même classe, il nous faut définir les méthodes equals et hashCode. Pour cela nous allons ajouter deux paramètres supplémentaires&#160;: </paragraph>
+				<liste>
+					<element>-Xequals&#160;: permet de générer une méthode equals (ne vous attardez pas sur le code généré, il est relativement atroce)&#160;; </element>
+					<element>-XhashCode&#160;: permet de générer une méthode hashCode (même remarque que pour equals, le code généré est atroce). </element>
+				</liste>
+				<paragraph>En bonus, nous allons aussi vouloir une méthode toString qui affiche les propriétés de nos objets correctement&#160;: </paragraph>
+				<liste>
+					<element>-XtoString&#160;: permet de surcharger la méthode toString pour avoir un affichage plus lisible de vos objets. </element>
+				</liste>
+			</section>
+			<section id="II-C">
+				<title>Une API fluide</title>
+				<paragraph>Pour ceux qui sont fans des <link href="http://en.wikipedia.org/wiki/Fluent_interface">API fluides</link>, le plugin jaxb-fluent-api et le paramètre -Xfluent-api vous raviront. Avec ce plugin, vous pourrez manipuler votre objet de la sorte&#160;: </paragraph>
+				<code langage="java"><![CDATA[
+    Account account = new Account().withLogin("login").withPassword("password");]]></code>
+			</section>
+			<section id="II-D">
+				<title>Bean Validation (JSR303)</title>
+				<paragraph>L'extension -XJsr303Annotations vous permet d'activer l'ajout d'annotations de la JSR 303 qui définissent les règles de validation de vos objets. Ces annotations sont générées via les<link href="http://www.w3schools.com/schema/schema_facets.asp"> «&#160;restrictions&#160;»</link> que vous incluez dans votre XSD. Avec <link href="https://github.com/krasa/krasa-jaxb-tools">ce plugin</link>, vous pourrez donc générer automatiquement les annotations suivantes&#160;: </paragraph>
+				<liste>
+					<element>@NotNull pour les attributs dont la restriction MinOccur est supérieure ou égale à 1 (donc requis)&#160;;</element>
+					<element>@Size pour les listes dont le nombre d'occurrences doit être plus grand que 1 (MinOccur > 1)&#160;;</element>
+					<element>@Size s'il y a une restriction maxLength ou minLength&#160;;</element>
+					<element>@DecimalMax pour les restrictions maxInclusive&#160;;</element>
+					<element>@DecimalMin pour les restrictions minInclusive&#160;;</element>
+					<element>@Digits s'il y a une restriction totalDigits ou fractionDigits&#160;;</element>
+					<element>@Pattern s'il y a une restriction Pattern.</element>
+				</liste>
+			</section>
+			<section id="II-E">
+				<title>La configuration finale</title>
+				<paragraph>Voici à quoi ressemble la configuration finale&#160;: </paragraph>
+				<code langage="xml"><![CDATA[
+        <plugin>
+                <groupId>org.jvnet.jaxb2.maven2</groupId>
+                <artifactId>maven-jaxb2-plugin</artifactId>
+                <version>0.8.3</version>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <args>
+                                <arg>-enableIntrospection</arg>
+                                <arg>-Xequals</arg>
+                                <arg>-XhashCode</arg>
+                                <arg>-XtoString</arg>
+                                <arg>-Xcollection-setter-injector</arg>
+                                <arg>-no-header</arg>
+                                <arg>-Xfluent-api</arg>
+                                <arg>-Xdefault-value</arg>
+                                <arg>-XJsr303Annotations</arg>
+                            </args>
+                            ... import des plugins nécessaires à ces arguments
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>                            ]]></code>
+			</section>
+		</section>
+		<section id="III">
+			<title>Les services</title>
+			<paragraph>Dans ce projet nous allons ajouter deux services, un Web Service SOAP et une ressource REST. Le code de notre exemple se trouve ici&#160;: <link href="https://github.com/hlassiege/maven-ws/tree/master/services">https://github.com/hlassiege/maven-ws/tree/master/services</link>. </paragraph>
+			<paragraph>Je ne m'attarderai pas en longueur sur le code utilisé, ce n'est pas l'objet de cet article. Le seul point important c'est que j'utilise des annotations JAX-WS et JAX-RS standards. Vous noterez que je réutilise les objets du modèle définis précédemment. </paragraph>
+			<paragraph>Sur ce projet, nous allons nous attarder sur la configuration Maven nécessaire pour générer notre WSDL et l'installer sur notre repository. </paragraph>
+			<paragraph>Pour cela, nous allons utiliser le cxf-java2ws-plugin qui permet de créer un WSDL à partir de notre code Java (approche Code First). </paragraph>
+			<code langage="xml"><![CDATA[
+            <plugin>
+                <groupId>org.apache.cxf</groupId>
+                <artifactId>cxf-java2ws-plugin</artifactId>
+                <version>${cxf.version}</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.cxf</groupId>
+                        <artifactId>cxf-rt-frontend-jaxws</artifactId>
+                        <version>${cxf.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.apache.cxf</groupId>
+                        <artifactId>cxf-rt-frontend-simple</artifactId>
+                        <version>${cxf.version}</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>generate-wsdl</id>
+                        <phase>process-classes</phase>
+                        <configuration>
+                            <!-- argline -->
+                            <!-- Use the option -createxsdimports to generate separate xsd files
+                                for types definition -->
+                            <argline>-address http://localhost:8081/developpez/service</argline>
+
+                            <!-- Attach the generated wsdl file to the list of files to be deployed
+                                on install. This means the wsdl file will be copied to the repository with
+                                groupId, artifactId and version of the project and type &quot;wsdl&quot;.
+                                With this option you can use the maven repository as a Service Repository. -->
+                            <attachWsdl>true</attachWsdl>
+                            <className>com.developpez.hugo.ws.services.ProfileResource</className>
+                            <!-- See here for options http://cxf.apache.org/docs/java-to-ws.html -->
+                            <databinding>jaxb</databinding>
+                            <frontend>jaxws</frontend>
+                            <genClient>false</genClient>
+                            <genServer>false</genServer>
+                            <genWrapperbean>false</genWrapperbean>
+                            <genWsdl>true</genWsdl>
+                            <quiet>false</quiet>
+                            <verbose>true</verbose>
+                        </configuration>
+                        <goals>
+                            <goal>java2ws</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>]]></code>
+			<paragraph>Le code est commenté, mais je vais m'attarder sur un point important de la configuration. Ce point c'est l'option attachWsdl. Cette option permet de versionner votre WSDL produit comme un artefact de packaging wsdl avec votre jar sur le repository. C'est cette option qui vous permettra d'obtenir le résultat suivant au lancement de la commande «&#160;<b>mvn install&#160;»</b>&#160;: </paragraph>
+			<code langage="console"><![CDATA[
+[INFO] --- maven-install-plugin:2.3.1:install (default-install) @ services ---
+[INFO] Installing D:\...\maven-ws\services\target\services-1.0-SNAPSHOT.jar to C:\Users\hugo\.m2\repository\com\developpez\hugo\services\1.0-SNAPSHOT\services-1.0-SNAPSHOT.jar
+[INFO] Installing D:\...\maven-ws\services\pom.xml to C:\Users\hugo\.m2\repository\com\developpez\hugo\services\1.0-SNAPSHOT\services-1.0-SNAPSHOT.pom
+[INFO] Installing D:\...\maven-ws\services\target\generated\wsdl\ProfileResource.wsdl to C:\Users\hugo\.m2\repository\com\developpez\hugo\services\1.0-SNAPSHOT\services-1.0-SNAPSHOT.wsdl]]></code>
+			<paragraph>C'est la dernière ligne qu'il faut regarder et notamment le fichier services-1.0-SNAPSHOT.wsdl qui est déposé sur votre repository. Ce fichier nous permettra de générer notre client par la suite. </paragraph>
+			<paragraph>Pour ce projet, nous avons fait le tour. </paragraph>
+			<imgtext type="info">En fait pas tout à fait, vous pourriez me reprocher avec raison de ne pas avoir fait le même travail pour le service REST. Il existe bien un plugin Maven pour générer un fichier WADL comme nous avons pu le faire pour le WSDL&#160;: <link href="https://wikis.oracle.com/display/Jersey/WADL">maven-wadl-plugin</link>. Cependant, ce plugin ne permet pas de déposer le fichier WADL sur notre repository. C'est toutefois possible en appelant à la main le plugin maven-install-plugin. Mais même en faisant cela, le plugin n'est pas suffisamment souple pour accepter de réutiliser nos XSD et de les inclure dans le WADL généré. Le fait d'avoir nos XSD à part pose plein de problèmes par la suite si on veut utiliser la même technique. Enfin, dernier point, s'il existe bien un plugin Maven pour générer le code du service à partir du fichier WADL, il n'existe pas à ma connaissance de plugin pour générer le code du <b>client</b> à partir du WADL, ce qui réduit considérablement l'intérêt de stocker ces fichiers WADL. </imgtext>
+		</section>
+		<section id="IV">
+			<title>Le client</title>
+			<paragraph>Dans cette section nous allons nous attacher à générer le code client permettant d'accéder à notre service automatiquement. C'est selon moi une bonne pratique de mettre à disposition des autres projets qui travaillent avec vous le code d'un client des services que vous proposez. </paragraph>
+			<paragraph>Pour cela, rien de sorcier, nous allons profiter du WSDL stocké sur le repository au chapitre précédent. La seule chose à faire consiste à configurer le plugin cxf-codegen-plugin. </paragraph>
+			<code langage="xml"><![CDATA[
+            <plugin>
+                <groupId>org.apache.cxf</groupId>
+                <artifactId>cxf-codegen-plugin</artifactId>
+                <version>${cxf.version}</version>
+                <executions>
+                    <execution>
+                        <id>generate-sources</id>
+                        <phase>generate-sources</phase>
+                        <configuration>
+                            <wsdlOptions>
+                                <wsdlOption>
+                                    <wsdlArtifact>
+                                        <groupId>${project.groupId}</groupId>
+                                        <artifactId>services</artifactId>
+                                        <version>${project.version}</version>
+                                    </wsdlArtifact>
+                                </wsdlOption>
+                            </wsdlOptions>
+                        </configuration>
+                        <goals>
+                            <goal>wsdl2java</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>]]></code>
+			<paragraph>Simple non&#160;? Le code généré peut ensuite être utilisé dans une configuration Spring classique&#160;: </paragraph>
+			<code langage="xml"><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:jaxws="http://cxf.apache.org/jaxws"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+          http://www.springframework.org/schema/beans 
+          http://www.springframework.org/schema/beans/spring-beans.xsd
+          http://cxf.apache.org/jaxws 
+          http://cxf.apache.org/schemas/jaxws.xsd">
+ 
+    <jaxws:client id="serviceClient"
+                  serviceClass="com.developpez.hugo.ws.services.ProfileResource"
+                  address="http://localhost:8080/" />
+</beans>]]></code>
+		</section>
+		<section id="V">
+			<title>Les tests d'intégration</title>
+			<paragraph>Désormais nous pouvons déployer nos services et lancer nos tests d'intégration. Le code de cette section se trouve ici&#160;: <link href="https://github.com/hlassiege/maven-ws/tree/master/webapp">https://github.com/hlassiege/maven-ws/tree/master/webapp</link>. </paragraph>
+			<paragraph>À cette étape, nous avons donc nos services qui sont packagés dans une archive War et nous allons réutiliser ce que nous avons appris dans <link href="http://hugo.developpez.com/tutoriels/java/developpement-web-avec-maven-tomcat-et-Jetty/#LVI">l'article précédent</link>. Nous allons utiliser les plugins Maven Jetty et Maven Failsafe pour lancer un serveur Jetty dans la phase de test d'intégration et nous allons profiter du plugin Maven SoapUI pour tester nos services Web. </paragraph>
+			<paragraph>Voici tout d'abord la configuration des plugins Maven Jetty et Maven failsafe&#160;: </paragraph>
+			<code langage="xml"><![CDATA[
+ <plugin>
+                <groupId>org.mortbay.Jetty</groupId>
+                <artifactId>Jetty-maven-plugin</artifactId>
+                <version>8.1.5.v20120716</version>
+                <configuration>
+                    <stopPort>8089</stopPort>
+                    <stopKey>stop</stopKey>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>run-Jetty</id>
+                        <phase>pre-integration-test</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <daemon>true</daemon>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>stop-Jetty</id>
+                        <phase>post-integration-test</phase>
+                        <goals>
+                            <goal>stop</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>2.13</version>
+                <executions>
+                    <execution>
+                        <id>failsafe-integration-tests</id>
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>integration-test</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>failsafe-verify</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>]]></code>
+			<paragraph>Je ne reviens pas en détail sur cette configuration, je l'ai déjà détaillée dans <link href="http://hugo.developpez.com/tutoriels/java/developpement-web-avec-maven-tomcat-et-jetty/#LVI">l'article «&#160;Développement Web avec Maven Tomcat et Jetty&#160;»</link>. </paragraph>
+			<paragraph>Nous allons ajouter le plugin Maven SoapUI sur la phase d'intégration pour appeler le runner de test SoapUI </paragraph>
+			<code langage="xml"><![CDATA[
+            <plugin>
+                <groupId>eviware</groupId>
+                <artifactId>maven-soapui-plugin</artifactId>
+                <version>${maven-soapui-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>soapui-test</id>
+                        <phase>integration-test</phase>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <projectFile>${basedir}/src/test/resources/soapui/ProfileResource-soapui-project.xml</projectFile>
+                            <host>localhost:8080</host>
+                            <testSuite>Developpez.com TestSuite</testSuite>
+                            <junitReport>true</junitReport>
+                            <exportAll>true</exportAll>
+                            <printReport>true</printReport>
+                            <outputFolder>target/surefire-reports</outputFolder>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>]]></code>
+			<paragraph>Si nous regardons en détail, le plugin utiliser un fichier de test présent dans /src/test/resources. Nous avons créé ce fichier via l'IHM de SoapUI. La configuration indique aussi le host et le port du Jetty que nous venons de lancer grâce au plugin Maven Jetty. </paragraph>
+			<paragraph>Avec cette configuration, le runner de test de SoapUI va lancer la suite de test défini dans le fichier XML sur notre fichier War tout juste construit. </paragraph>
+			<paragraph>Ici par exemple, le résultat obtenu sur la sortie standard&#160;: </paragraph>
+			<code langage="shell"><![CDATA[
+23:41:01,996 INFO  [SoapUITestCaseRunner] Assertion [Not SOAP Fault] has status VALID
+23:41:01,997 INFO  [SoapUITestCaseRunner] Assertion [Schema Compliance] has status VALID
+23:41:01,999 INFO  [SoapUITestCaseRunner] Assertion [Script Assertion] has status VALID
+23:41:02,015 INFO  [SoapUITestCaseRunner] Finished running soapUI testcase [create TestCase], time taken: 4313ms, status: FINISHED
+23:41:02,016 INFO  [SoapUITestCaseRunner] TestSuite [Developpez.com TestSuite] finished with status [FINISHED] in 4565ms
+
+SoapUI 3.6 TestCaseRunner Summary
+-----------------------------
+Time Taken: 4571ms
+Total TestSuites: 1
+Total TestCases: 1 (0 failed)
+Total TestSteps: 1
+Total Request Assertions: 3
+Total Failed Assertions: 0
+Total Exported Results: 1
+[INFO]
+[INFO] --- Jetty-maven-plugin:8.1.5.v20120716:stop (stop-Jetty) @ webapp ---
+[INFO]
+[INFO] --- maven-failsafe-plugin:2.13:verify (failsafe-verify) @ webapp ---
+Stopping server 0
+[INFO] Failsafe report directory: D:\Developpement\checkout\developpez\maven-ws\webapp\target\failsafe-reports
+[WARNING] File encoding has not been set, using platform encoding Cp1252, i.e. build is platform dependent!]]></code>
+			<paragraph>Magnifique&#160;! Désormais nous avons automatisé nos tests de services Web et nous pouvons les intégrer au sein d'une usine d'intégration continue&#160;! </paragraph>
+		</section>
+		<section id="VI">
+			<title>Ressources</title>
+			<liste>
+				<element>Code de l'article sous GitHub&#160;: <link href="https://github.com/hlassiege/maven-ws">https://github.com/hlassiege/maven-ws</link>.</element>
+				<element>L'article sous GitHub&#160;: <link href="https://github.com/hlassiege/art-maven-ws">https://github.com/hlassiege/art-maven-ws</link>.</element>
+			</liste>
+		</section>
+		<section id="VII">
+			<title>Conclusion</title>
+			<paragraph>Avec cet article nous avons vu comment&#160;: </paragraph>
+			<liste>
+				<element>générer notre modèle à partir de XSD&#160;;</element>
+				<element>écrire nos services Web à partir de ce modèle&#160;;</element>
+				<element>générer notre WSDL à partir du code des services&#160;;</element>
+				<element>générer un client à partir du WSDL&#160;;</element>
+				<element>automatiser nos tests d'intégration avec SoapUI.</element>
+			</liste>
+			<paragraph>Désormais vous n'avez plus d'excuse pour ne pas générer vos clients, ne pas écrire de tests ou copier votre WSDL à la main dans un autre projet&#160;! </paragraph>
+			<imgtext type="idea">Vos retours nous aident à améliorer nos publications. N'hésitez donc pas à commenter cet article sur le forum&#160;: <lien-forum avecnote="1" id="1321483"/></imgtext>
+		</section>
+		<section id="VIII">
+			<title>Remerciements</title>
+			<paragraph>Et pour vraiment conclure je tiens à remercier <link href="http://www.developpez.net/forums/u69211/keulkeul/">keulkeul</link>, <link href="http://www.developpez.net/forums/u192017/thierryler/">thierryler</link> et <link href="http://blog.jetoile.fr/">Khanh Tuong Maudoux</link> pour leur relecture technique ainsi que <link href="http://www.developpez.net/forums/u124512/claudeleloup/">Claude Leloup</link> pour la relecture orthographique. </paragraph>
+		</section>
+	</summary>
+</document>
